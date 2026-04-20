@@ -378,8 +378,7 @@
     .block-h3 .block-editable { font-size:19px; font-weight:600; letter-spacing:-.2px; line-height:1.3; padding:4px 0; }
     .block-p  .block-editable { font-size:15px; font-weight:400; line-height:1.7; padding:3px 0; }
 
-    /* Separator between headings */
-    .block-h1 .block-editable { border-bottom:1px solid var(--border); margin-bottom:6px; }
+    /* no border on headings */
 
     /* Code block */
     .block-code-wrap, .block-editor-wrap {
@@ -548,6 +547,54 @@
       font-family:inherit; cursor:pointer; transition:all .18s;
     }
     .quiz-add-question:hover { border-color:var(--accent2); color:var(--accent2); background:rgba(191,90,242,.05); }
+
+    /* ── Contenteditable document editor ── */
+    .theory-doc {
+      outline: none; min-height: 400px; caret-color: var(--accent);
+      font-size: 15px; line-height: 1.75; color: var(--text);
+      word-break: break-word;
+    }
+    .theory-doc:empty::before, .theory-doc .doc-placeholder {
+      content: attr(data-ph); color: var(--text-3); pointer-events: none;
+    }
+    .theory-doc h1 { font-size:30px; font-weight:800; letter-spacing:-.6px; line-height:1.2; margin:10px 0 4px; }
+    .theory-doc h2 { font-size:24px; font-weight:700; letter-spacing:-.4px; line-height:1.25; margin:8px 0 3px; }
+    .theory-doc h3 { font-size:19px; font-weight:600; letter-spacing:-.2px; line-height:1.3; margin:6px 0 2px; }
+    .theory-doc div, .theory-doc p { margin:0; min-height:1.75em; }
+    .theory-doc .doc-code-block {
+      margin: 8px 0; border-radius:14px; overflow:hidden;
+      border:1px solid var(--border); background:#0d0d0d;
+      user-select: none;
+    }
+    .theory-doc .doc-code-block .code-textarea { user-select:text; }
+
+    /* ── Price picker ── */
+    .price-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+    .price-pill {
+      padding:7px 16px; border-radius:100px;
+      border:1px solid var(--border); background:var(--surface);
+      color:var(--text-2); font-size:13px; font-weight:500;
+      cursor:pointer; font-family:inherit; transition:all .18s;
+    }
+    .price-pill:hover { border-color:var(--green); color:var(--green); }
+    .price-pill.selected { background:rgba(48,209,88,.15); border-color:var(--green); color:var(--green); }
+
+    /* ── Dashboard welcome ── */
+    .dash-welcome {
+      display:flex; align-items:center; gap:16px;
+      padding:28px 32px; border-radius:20px;
+      background: linear-gradient(135deg,rgba(41,151,255,.10) 0%,rgba(191,90,242,.08) 100%);
+      border:1px solid rgba(41,151,255,.18); margin-bottom:32px;
+    }
+    .dash-welcome-emoji { font-size:36px; flex-shrink:0; }
+    .dash-welcome h2 { font-size:20px; font-weight:700; letter-spacing:-.3px; margin-bottom:4px; }
+    .dash-welcome p { font-size:14px; color:var(--text-2); }
+
+    .price-badge {
+      font-size:11px; font-weight:700; padding:3px 9px; border-radius:100px;
+    }
+    .price-badge.free  { background:rgba(48,209,88,.15);  color:var(--green); }
+    .price-badge.paid  { background:rgba(255,159,10,.15); color:var(--orange); }
 
     /* Editor type badge in topbar */
     .editor-type-tag {
@@ -949,7 +996,6 @@
         <div class="page-title">My Courses</div>
         <div class="page-sub">Courses you've created and are learning.</div>
       </div>
-      <button class="btn btn-primary" onclick="openModal('add-course')">＋ &nbsp;New Course</button>
     </div>
     <div class="dash-grid" id="courses-grid">
       <div class="empty-state">
@@ -1099,6 +1145,21 @@
           <!-- filled by JS -->
         </div>
         <input type="hidden" id="c-cat" />
+      </div>
+      <div class="form-group">
+        <label>Price</label>
+        <div class="price-pills" id="price-pills">
+          <button type="button" class="price-pill selected" data-price="Free" onclick="selectPrice('Free',this)">Free</button>
+          <button type="button" class="price-pill" data-price="$5"  onclick="selectPrice('$5',this)">$5</button>
+          <button type="button" class="price-pill" data-price="$10" onclick="selectPrice('$10',this)">$10</button>
+          <button type="button" class="price-pill" data-price="$15" onclick="selectPrice('$15',this)">$15</button>
+          <button type="button" class="price-pill" data-price="$20" onclick="selectPrice('$20',this)">$20</button>
+          <button type="button" class="price-pill" data-price="$25" onclick="selectPrice('$25',this)">$25</button>
+          <button type="button" class="price-pill" data-price="$30" onclick="selectPrice('$30',this)">$30</button>
+          <button type="button" class="price-pill" data-price="$50" onclick="selectPrice('$50',this)">$50</button>
+          <button type="button" class="price-pill" data-price="$100" onclick="selectPrice('$100',this)">$100</button>
+        </div>
+        <input type="hidden" id="c-price" value="Free" />
       </div>
       <button class="form-submit" type="submit">Create course</button>
     </form>
@@ -1418,6 +1479,12 @@ function selectCat(label, el){
   document.getElementById('c-cat').value = label;
 }
 
+function selectPrice(price, el){
+  document.querySelectorAll('.price-pill').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('c-price').value = price;
+}
+
 /* ──────────────────────────────────────────
    COURSE CRUD
 ────────────────────────────────────────── */
@@ -1426,31 +1493,46 @@ function handleAddCourse(e){
   const title = document.getElementById('c-title').value.trim();
   const desc  = document.getElementById('c-desc').value.trim();
   const cat   = document.getElementById('c-cat').value;
+  const price = document.getElementById('c-price').value || 'Free';
   if(!cat){alert('Please select a category.');return;}
   const cat_info = CATEGORIES.find(c=>c.label===cat)||{emoji:'📄'};
   const id = Date.now();
-  courses.push({id, title, desc, cat, emoji: cat_info.emoji, topics:[]});
+  courses.push({id, title, desc, cat, price, emoji: cat_info.emoji, topics:[]});
   closeModal('add-course');
   e.target.reset();
   document.getElementById('c-cat').value='';
+  document.getElementById('c-price').value='Free';
+  document.querySelectorAll('.price-pill').forEach((p,i)=>p.classList.toggle('selected',i===0));
   showCourse(id);
 }
 
 function renderCourseGrid(){
   const grid = document.getElementById('courses-grid');
+  const username = currentUser ? currentUser.name : 'there';
+
+  const welcome = `<div class="dash-welcome">
+    <div class="dash-welcome-emoji">👋</div>
+    <div>
+      <h2>Welcome back, ${username}!</h2>
+      <p>Use the <strong>＋ Add</strong> button in the sidebar to create a new course.</p>
+    </div>
+  </div>`;
+
   if(!courses.length){
-    grid.innerHTML=`<div class="empty-state">
+    grid.innerHTML = welcome + `<div class="empty-state">
       <div class="empty-icon">📂</div>
       <h3>No courses yet</h3>
-      <p>Create your first course and start adding topics and levels.</p>
-      <button class="btn btn-primary" onclick="openModal('add-course')">＋ &nbsp;Create a course</button>
+      <p>Hit <strong>＋ Add</strong> in the sidebar to create your first course.</p>
     </div>`;
     return;
   }
-  grid.innerHTML = courses.map(c=>{
+
+  const cards = courses.map(c=>{
     const col = CAT_COLORS[c.cat]||'#2997ff';
     const topics = c.topics.length;
     const levels = c.topics.reduce((a,t)=>a+t.levels.length,0);
+    const isFree = !c.price || c.price==='Free';
+    const priceBadge = `<span class="price-badge ${isFree?'free':'paid'}">${c.price||'Free'}</span>`;
     return `<div class="dash-course-card" onclick="showCourse(${c.id})">
       <div class="dash-course-banner" style="background:linear-gradient(135deg,${col}22,${col}08)">
         <span style="font-size:40px">${c.emoji}</span>
@@ -1461,11 +1543,13 @@ function renderCourseGrid(){
         <p>${c.desc.length>80?c.desc.slice(0,80)+'…':c.desc}</p>
         <div class="dash-course-meta">
           <span class="topic-count">${topics} topic${topics!==1?'s':''} · ${levels} level${levels!==1?'s':''}</span>
-          <span style="font-size:18px">${c.emoji}</span>
+          ${priceBadge}
         </div>
       </div>
     </div>`;
   }).join('');
+
+  grid.innerHTML = welcome + `<div class="dash-grid" style="margin-top:0">${cards}</div>`;
 }
 
 /* ──────────────────────────────────────────
@@ -1666,24 +1750,171 @@ function saveLevelTitle(val){
   if(lv) lv.name = val.trim()||lv.name;
 }
 
-/* ── Render all blocks (Theory) ── */
+/* ── Render theory as a contenteditable document ── */
 function renderBlocks(){
   const {lv} = getLevelObj();
   if(!lv) return;
   const container = document.getElementById('editor-blocks');
   if(!container) return;
-
-  // Seed one empty paragraph if nothing yet
-  if(!lv.blocks.length) lv.blocks.push({id:Date.now(), type:'p', content:'', lang:'JavaScript'});
-
   container.innerHTML = '';
-  lv.blocks.forEach((blk, i) => container.appendChild(createBlockEl(blk, i)));
 
-  // Focus first block on load if all empty
-  setTimeout(()=>{
-    const first = container.querySelector('.block-editable');
-    if(first && !first.value) first.focus();
-  }, 30);
+  const doc = document.createElement('div');
+  doc.className = 'theory-doc';
+  doc.contentEditable = 'true';
+  doc.setAttribute('data-ph', 'Start writing… type / for formatting options');
+  doc.id = 'theory-doc';
+
+  // Restore saved content or start with empty line
+  doc.innerHTML = lv.docHtml || '<div><br></div>';
+
+  // Save on every input
+  doc.addEventListener('input', () => {
+    lv.docHtml = doc.innerHTML;
+    detectDocSlash(doc);
+  });
+
+  doc.addEventListener('keydown', (e) => {
+    const menu = document.getElementById('slash-menu');
+    if(menu.classList.contains('open')){
+      if(e.key==='ArrowDown'){e.preventDefault();slashMenuNav(1);return;}
+      if(e.key==='ArrowUp'){e.preventDefault();slashMenuNav(-1);return;}
+      if(e.key==='Enter'){e.preventDefault();confirmDocCmd(doc);return;}
+      if(e.key==='Escape'){hideSlashMenu();return;}
+      // Any other key: hide menu
+      if(e.key.length===1) hideSlashMenu();
+    }
+
+    if(e.key==='Enter'){
+      const block = getCaretBlock(doc);
+      if(!block) return;
+      const isEmpty = block.textContent.trim() === '' && !block.querySelector('.doc-code-block');
+      if(isEmpty){
+        // Empty line — stay, don't add another empty line
+        e.preventDefault();
+        return;
+      }
+      // After a heading, new line should be a paragraph div
+      const tag = block.tagName;
+      if(tag==='H1'||tag==='H2'||tag==='H3'){
+        e.preventDefault();
+        const newDiv = document.createElement('div');
+        newDiv.innerHTML = '<br>';
+        block.after(newDiv);
+        placeCaret(newDiv, true);
+        lv.docHtml = doc.innerHTML;
+      }
+    }
+  });
+
+  // Placeholder visibility
+  doc.addEventListener('focus', () => doc.classList.toggle('doc-empty', !doc.textContent.trim() && doc.innerHTML === '<div><br></div>'));
+  doc.addEventListener('blur',  () => doc.classList.remove('doc-empty'));
+
+  container.appendChild(doc);
+  setTimeout(()=>{ doc.focus(); placeCaret(doc, false); }, 30);
+}
+
+/* Get the direct-child block under the caret */
+function getCaretBlock(doc){
+  const sel = window.getSelection();
+  if(!sel||!sel.rangeCount) return null;
+  let node = sel.getRangeAt(0).startContainer;
+  while(node && node.parentElement !== doc) node = node.parentElement;
+  return (node instanceof Element) ? node : null;
+}
+
+/* Place caret at start (false) or end (true) of an element */
+function placeCaret(el, atEnd){
+  const r = document.createRange();
+  const sel = window.getSelection();
+  r.selectNodeContents(el);
+  r.collapse(!atEnd);
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+
+/* Detect "/" typed at start of a block */
+function detectDocSlash(doc){
+  const block = getCaretBlock(doc);
+  if(!block) return;
+  const text = block.textContent;
+  if(text === '/'){
+    // Show all slash items (theory mode)
+    document.querySelectorAll('.slash-item').forEach(i=>i.style.display='');
+    const sel = window.getSelection();
+    if(!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const menu = document.getElementById('slash-menu');
+    menu.style.top  = (rect.bottom + window.scrollY + 6) + 'px';
+    menu.style.left = Math.min(rect.left, window.innerWidth - 280) + 'px';
+    menu.classList.add('open');
+    slashTargetBlock = {_doc: doc, _docBlock: block};
+    slashFocusIdx = 0;
+    updateSlashFocus();
+  } else {
+    hideSlashMenu();
+  }
+}
+
+/* Confirm slash command for doc mode */
+function confirmDocCmd(doc){
+  const items = [...document.querySelectorAll('.slash-item')].filter(i=>i.style.display!=='none');
+  const chosen = items[slashFocusIdx];
+  if(chosen && slashTargetBlock && slashTargetBlock._doc){
+    applyDocCmd(chosen.dataset.type, slashTargetBlock._doc, slashTargetBlock._docBlock);
+  }
+}
+
+/* Apply a slash command to a doc block */
+function applyDocCmd(type, doc, block){
+  hideSlashMenu();
+  if(!block) return;
+
+  if(type==='code'||type==='code-editor'){
+    // Clear the "/" text
+    block.textContent = '';
+    // Build a code widget
+    const widget = buildDocCodeWidget(type);
+    block.replaceWith(widget);
+    // Add an empty paragraph after so user can keep typing
+    const after = document.createElement('div');
+    after.innerHTML = '<br>';
+    widget.after(after);
+    placeCaret(after, false);
+    const {lv} = getLevelObj();
+    if(lv) lv.docHtml = doc.innerHTML;
+    return;
+  }
+
+  // Heading or paragraph
+  const tagMap = {h1:'H1',h2:'H2',h3:'H3',p:'DIV'};
+  const newTag = tagMap[type]||'DIV';
+  if(block.tagName === newTag){
+    // Already that type — just clear the slash
+    const t = block.textContent.replace(/^\//, '');
+    block.textContent = t;
+    placeCaret(block, true);
+  } else {
+    const newEl = document.createElement(type==='p'?'div':type);
+    newEl.innerHTML = block.innerHTML.replace(/^\/?/, '') || '<br>';
+    block.replaceWith(newEl);
+    placeCaret(newEl, true);
+  }
+  const {lv} = getLevelObj();
+  if(lv) lv.docHtml = doc.innerHTML;
+}
+
+/* Build an embedded code block widget (non-editable container) */
+function buildDocCodeWidget(type){
+  const blk = {id:Date.now(), type, lang:'JavaScript', content:''};
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'doc-code-block';
+  wrapper.contentEditable = 'false';
+
+  wrapper.appendChild(buildCodeBlock(blk));
+  return wrapper;
 }
 
 /* ══════════════════════════════════════════
@@ -2207,7 +2438,9 @@ document.querySelectorAll('.slash-item').forEach(item=>{
   item.addEventListener('mousedown', e=>{
     e.preventDefault();
     if(!slashTargetBlock) return;
-    if(slashTargetBlock._quizTarget !== undefined){
+    if(slashTargetBlock._doc){
+      applyDocCmd(item.dataset.type, slashTargetBlock._doc, slashTargetBlock._docBlock);
+    } else if(slashTargetBlock._quizTarget !== undefined){
       applyQuizSlash(slashTargetBlock._quizTarget, slashTargetBlock._quizKind);
     } else {
       applySlashCommand(item.dataset.type, slashTargetBlock);
